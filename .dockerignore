@@ -1,0 +1,24 @@
+# Git
+.git
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime data
+chroma_db/
+
+# Models
+models/*.gguf
+models/*.bin
+
+# Secrets
+.env
+.env.local
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

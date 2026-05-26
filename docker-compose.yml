@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lightvlm_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Persistent storage for ChromaDB vector database
+      - ./chroma_db:/app/chroma_db
+      # Persistent cache volumes to prevent downloading models (SD, Whisper, HF) every restart
+      - hf_cache:/root/.cache/huggingface
+      - fastembed_cache:/root/.cache/fastembed
+    extra_hosts:
+      # Critical: Bridges the container's localhost to host machine for Ollama connectivity
+      - "host.docker.internal:host-gateway"
+
+    # UNCOMMENT BELOW IF YOU HAVE NVIDIA GPU & WANT LOCAL SD/WHISPER ACCELERATION:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  hf_cache:
+    name: lightvlm_hf_cache
+  fastembed_cache:
+    name: lightvlm_fastembed_cache

@@ -1,0 +1,19 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.so
+
+# Runtime data
+chroma_db/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/

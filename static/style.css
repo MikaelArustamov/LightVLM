@@ -1,0 +1,105 @@
+/* Voice mode overlay */
+#voice-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #0a0a0a;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+#voice-overlay.active {
+    display: flex;
+}
+
+.voice-avatar {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 32px;
+    box-shadow: 0 0 60px rgba(37, 99, 235, 0.3);
+}
+
+.voice-status {
+    font-size: 18px;
+    color: #888;
+    margin-bottom: 40px;
+}
+
+.voice-waves {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    height: 40px;
+}
+
+.voice-waves span {
+    width: 4px;
+    background: #2563eb;
+    border-radius: 2px;
+    height: 8px;
+    transition: height 0.2s;
+}
+
+.voice-waves.active span {
+    animation: wave 1s ease-in-out infinite;
+}
+
+.voice-waves span:nth-child(1) { animation-delay: 0s; }
+.voice-waves span:nth-child(2) { animation-delay: 0.1s; }
+.voice-waves span:nth-child(3) { animation-delay: 0.2s; }
+.voice-waves span:nth-child(4) { animation-delay: 0.3s; }
+.voice-waves span:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes wave {
+    0%, 100% { height: 8px; }
+    50% { height: 32px; }
+}
+
+.voice-close {
+    position: absolute;
+    bottom: 40px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 1px solid #333;
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-close:hover {
+    background: #333;
+}
+/* В конец core/static/style.css добавить: */
+
+/* Drag & drop */
+#chat.drag-active {
+    border: 2px dashed var(--accent);
+    background: rgba(37, 99, 235, 0.05);
+}
+
+/* Document preview */
+.doc-preview {
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+    font-family: monospace;
+    font-size: 13px;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
