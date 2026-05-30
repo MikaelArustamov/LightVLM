@@ -17,6 +17,8 @@ from models.model_router import ModelRouter
 from models.llm import LLM
 from models.generator import ImageGenerator
 from memory import MemoryStore
+from dotenv import load_dotenv
+load_dotenv()
 
 templates = Jinja2Templates(directory="templates")
 
@@ -24,15 +26,26 @@ templates = Jinja2Templates(directory="templates")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("[startup] Loading models...")
+
+
+    from dotenv import load_dotenv
+    load_dotenv()
+
+
     app.state.llm = LLM()
+
+
     app.state.embed = ModelRouter(EMBED_CFG)
     app.state.documents = {}
 
+    # Image generation
     try:
         app.state.generator = ImageGenerator()
         print("[startup] SD 1.5 ready")
     except Exception as e:
         print(f"[startup] Image gen disabled: {e}")
+        import traceback
+        traceback.print_exc()
         app.state.generator = None
 
     print(f"[startup] Text:   {TEXT_CFG['model']} ({TEXT_CFG['quant']})")
@@ -70,62 +83,89 @@ async def stream(request: Request):
     llm = request.app.state.llm
     embed = request.app.state.embed
 
-    # Выносим работу с базой данных ChromaDB в пул потоков
+
+    text_lower = text.lower().strip()
+    trigger_words = ["нарисуй", "сгенерируй", "draw", "generate", "image", "картинка", "picture"]
+
+
+    is_img = any(word in text_lower for word in trigger_words)
+
+    if is_img and request.app.state.generator:
+        try:
+            print(f"[Image Route Triggered] Direct intercept for prompt: {text}")
+
+
+            clean_prompt = text_lower
+            for word in trigger_words:
+                clean_prompt = clean_prompt.replace(word, "")
+            clean_prompt = clean_prompt.strip(",. ")
+
+
+            img_b64 = await run_in_threadpool(request.app.state.generator.generate_to_base64, clean_prompt)
+
+            if img_b64:
+
+                memory = MemoryStore(session_id, embed_router=embed)
+                await run_in_threadpool(memory.add, "user", text)
+                await run_in_threadpool(memory.add, "assistant", f"[Generated image: {clean_prompt}]")
+
+
+                if session_id in request.app.state.documents:
+                    del request.app.state.documents[session_id]
+
+                def img_stream():
+                    yield f"data: {json.dumps({'token': clean_prompt, 'generated': True, 'image': img_b64})}\n\n"
+                    yield "data: [DONE]\n\n"
+
+
+                return StreamingResponse(img_stream(), media_type="text/event-stream")
+
+        except Exception as e:
+            print(f"[Image Error] Stable Diffusion execution failed: {e}")
+            is_img = False
+
+
     memory = MemoryStore(session_id, embed_router=embed)
     context = await run_in_threadpool(memory.get_context, text, recent_n=5, relevant_n=3)
 
-    # Исправлено: в LLM-классе должен быть метод system_prompt (или замените на строку)
     system_content = llm.system_prompt() if hasattr(llm, "system_prompt") else "You are a helpful assistant."
     messages = [{"role": "system", "content": system_content}]
     messages.extend(context)
 
-    # Attach uploaded document if any
+
     doc_text = request.app.state.documents.get(session_id)
     if doc_text:
         if text:
             messages.append({"role": "user", "content": f"[Uploaded Document]\n{doc_text}\n\nQuestion: {text}"})
         else:
             messages.append({"role": "user", "content": f"[Uploaded Document]\n{doc_text}"})
-
-    if not doc_text and text:
+    elif text:
         messages.append({"role": "user", "content": text})
 
-    # Проверка на генерацию картинок (вынесено в пул потоков)
-    is_img, img_prompt = False, ""
-    if hasattr(llm, "is_image_request") and text:
-        is_img, img_prompt = llm.is_image_request(text)
 
-    if is_img and request.app.state.generator:
-        # Тяжелая генерация SD 1.5 уходит в тред-пул
-        img_b64 = await run_in_threadpool(request.app.state.generator.generate_to_base64, img_prompt)
-        if img_b64:
-            await run_in_threadpool(memory.add, "user", text)
-            await run_in_threadpool(memory.add, "assistant", f"[Generated image: {img_prompt}]")
-
-            def img_stream():
-                yield f"data: {json.dumps({'token': img_prompt, 'generated': True, 'image': img_b64})}\n\n"
-                yield "data: [DONE]\n\n"
-
-            return StreamingResponse(img_stream(), media_type="text/event-stream")
-
-    # Асинхронный генератор для LiteLLM стриминга без блокировки сервера
     async def event_generator():
         full = ""
+        try:
 
-        # Обертка над синхронным итератором генератора LiteLLM
-        def get_chunks():
-            return list(llm.chat_stream(messages))
+            def get_chunks():
+                return list(llm.chat_stream(messages))
 
-        chunks = await run_in_threadpool(get_chunks)
+            chunks = await run_in_threadpool(get_chunks)
 
-        for chunk in chunks:
-            full += chunk  # Исправлен баг: теперь текст накапливается корректно
-            yield f"data: {json.dumps({'token': chunk})}\n\n"
+            for chunk in chunks:
+                full += chunk
+                yield f"data: {json.dumps({'token': chunk})}\n\n"
 
-        # Сохранение финального контекста в базу (в тред-пуле)
-        await run_in_threadpool(memory.add, "user", text or "[document question]")
-        await run_in_threadpool(memory.add, "assistant", full)
-        yield "data: [DONE]\n\n"
+
+            await run_in_threadpool(memory.add, "user", text or "[document question]")
+            await run_in_threadpool(memory.add, "assistant", full)
+
+        except Exception as e:
+
+            print(f"[LiteLLM Error] Text streaming crashed: {e}")
+            yield f"data: {json.dumps({'token': f' [Core Error: {str(e)}]. Проверьте TEXT_MODEL в .env.'})}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -145,11 +185,11 @@ async def vision(request: Request, image: UploadFile = File(...), prompt: str = 
 
 @app.post("/transcribe")
 async def transcribe(request: Request, audio: UploadFile = File(...)):
-    # Исправлен путь импорта в соответствии с вашим предыдущим кодом (класс AudioPipeline)
+
     from models.audio import AudioPipeline
     contents = await audio.read()
 
-    # Инициализация и локальный инференс Whisper в тред-пуле
+
     pipeline = AudioPipeline()
     text = await run_in_threadpool(pipeline.transcribe, contents)
     return {"text": text}
@@ -162,7 +202,7 @@ async def upload(
         mode: str = Form("auto"),
         ask_question: str = Form("")
 ):
-    # Исправлен путь импорта в соответствии с кодом парсера (DocumentParser)
+
     from models.document_parser import DocumentParser
     llm = request.app.state.llm
     parser = DocumentParser(llm)
@@ -170,7 +210,7 @@ async def upload(
     session_id = request.headers.get("X-Session-Id", "default")
     contents = await file.read()
 
-    # Тяжелый парсинг (PDF/OCR) уходит в тред-пул
+
     result = await run_in_threadpool(parser.parse, contents, file.filename, mode)
 
     if result.get("type") == "error":

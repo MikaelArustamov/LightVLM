@@ -4,7 +4,10 @@ import os
 import re
 from typing import Dict, Any
 from dotenv import load_dotenv
+from pathlib import Path
 
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
