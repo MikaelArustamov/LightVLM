@@ -10,7 +10,7 @@ class MemoryStore:
         self.session_id = session_id
         self.embed = embed_router
 
-        # Новый API ChromaDB
+        # API ChromaDB
         self.client = chromadb.PersistentClient(
             path=persist_dir,
             settings=Settings(anonymized_telemetry=False)
@@ -59,4 +59,4 @@ class MemoryStore:
         return context[-recent_n:] if len(context) > recent_n else context
 
     def persist(self):
-        pass  # PersistentClient сохраняет автоматически
+        pass  # PersistentClient
