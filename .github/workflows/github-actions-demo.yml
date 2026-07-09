@@ -28,5 +28,5 @@ jobs:
       run: uv sync --frozen
 
     - name: Run tests
-      run: uv run pytest
+      run: uv run --with pytest pytest
 
