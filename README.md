@@ -114,6 +114,49 @@ The FastAPI instance will initialize and expose its endpoints at `http://localho
 
 ---
 
+## 🧪 CI & Testing
+
+### What CI checks
+
+GitHub Actions runs on every push/PR to `main`. The pipeline:
+
+1. Installs Python 3.12 + `uv`
+2. Installs project dependencies (`uv sync --frozen`)
+3. Creates `.env` from `.env_example` with mock model values
+4. Runs unit tests (`test_imports.py`) — verifies all modules import correctly and config loads without errors
+
+### Running tests locally
+
+```bash
+# Create .env (required — core/config.py reads it at import time)
+cp .env_example .env
+
+# Run import/unit tests (no model server needed)
+uv run pytest tests/test_imports.py -v
+
+# Run all tests (requires Ollama running locally)
+uv run pytest -v
+```
+
+### Test structure
+
+| Test file | What it checks | Needs Ollama? |
+| :--- | :--- | :---: |
+| `test_imports.py` | All modules import, config loads, classes instantiate | No |
+| `test_quality.py` | Model accuracy on mini-benchmarks (math, logic, code) | Yes |
+| `test_speed.py` | TTFT, tok/s, efficiency vs quantization baseline | Yes |
+| `test_memory.py` | Embedding throughput (FastEmbed vs Ollama) | Yes |
+
+> CI only runs `test_imports.py` because `test_quality`, `test_speed`, and `test_memory` require a live Ollama instance with loaded models.
+
+### Adding new tests
+
+- Place test files in `tests/`
+- Use fixtures from `conftest.py` (`text_router`, `vision_router`, `embed_router`, `llm`)
+- If the test needs a model server, it will only run locally — CI skips it automatically
+
+---
+
 ## 🔌 API Documentation Reference
 
 ### 1. Streaming Chat (`POST /stream`)
