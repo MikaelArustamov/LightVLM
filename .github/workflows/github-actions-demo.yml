@@ -1,36 +1,36 @@
-name: GitHub Actions Demo
+name: CI
 run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Скачиваем код репозитория
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 2. Устанавливаем uv и нужную версию Python
     - name: Install uv and Python
       uses: astral-sh/setup-uv@v5
       with:
-        version: "latest" # Всегда использовать свежую версию uv
-        enable-cache: true # Включаем кэш, чтобы тесты запускались мгновенно
-        python-version: "3.14"
+        version: "latest"
+        enable-cache: true
+        python-version: "3.12"
 
-    # sync
     - name: Install dependencies
       run: uv sync --frozen
 
-    - name: Run tests
-      run: uv run --with pytest pytest
-      env:
-        TEXT_MODEL: "mock-model"
-        VISION_MODEL: "mock-vision-model"
-        EMBED_MODEL: "mock-embed-model"
+    - name: Create .env for CI
+      run: |
+        cp .env_example .env
+        sed -i 's|^TEXT_MODEL=.*|TEXT_MODEL=mock-model|' .env
+        sed -i 's|^VISION_MODEL=.*|VISION_MODEL=mock-vision-model|' .env
+        sed -i 's|^EMBED_MODEL=.*|EMBED_MODEL=mock-embed-model|' .env
+
+    - name: Run tests (unit only, no model servers)
+      run: uv run pytest tests/test_imports.py -v
 

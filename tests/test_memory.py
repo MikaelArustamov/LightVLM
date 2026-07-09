@@ -1,6 +1,7 @@
 """Benchmark embedding backends: FastEmbed vs Ollama."""
 
 import time
+import pytest
 
 
 def test_embed_speed(embed_router):
@@ -8,7 +9,9 @@ def test_embed_speed(embed_router):
     texts = ["Hello world"] * 50  # batch of 50
 
     t0 = time.time()
+    embs = embed_router.embed(texts)
     elapsed_ms = (time.time() - t0) * 1000
+
     ms_per_text = elapsed_ms / len(texts)
 
     print(f"\nBackend: {embed_router.cfg['model']}")
