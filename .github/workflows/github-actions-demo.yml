@@ -29,4 +29,7 @@ jobs:
 
     - name: Run tests
       run: uv run --with pytest pytest
+      env:
+        TEXT_MODEL: "mock-model"
+        VISION_MODEL: "mock-vision-model"
 
