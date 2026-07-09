@@ -32,4 +32,5 @@ jobs:
       env:
         TEXT_MODEL: "mock-model"
         VISION_MODEL: "mock-vision-model"
+        EMBED_MODEL: "mock-embed-model"
 
