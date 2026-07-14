@@ -7,7 +7,7 @@ def test_core_config():
     assert EMBED_CFG["model"]
 
 def test_model_router():
-    from models.model_router import ModelRouter, OllamaBackend, FastEmbedBackend
+    from models.model_router import ModelRouter
 
 def test_llm():
     from models.llm import LLM
